@@ -40,6 +40,10 @@ class SnowflakeTarget(SQLInterface):
             connection.configured_schema
         ))
 
+        # Init dialect for creating CSV file for snowflake Copy command
+        csv.register_dialect('sfcsv', 'excel', quoting=csv.QUOTE_ALL, escapechar=None )
+
+
         if logging_level:
             level = logging.getLevelName(logging_level)
             self.LOGGER.setLevel(level)
@@ -479,7 +483,7 @@ class SnowflakeTarget(SQLInterface):
         cur.execute('''
             COPY INTO {db}.{schema}.{table} ({cols})
             FROM {stage_location}
-            FILE_FORMAT = (TYPE = CSV EMPTY_FIELD_AS_NULL = FALSE FIELD_OPTIONALLY_ENCLOSED_BY = '"')
+            FILE_FORMAT = (TYPE = CSV EMPTY_FIELD_AS_NULL = FALSE FIELD_OPTIONALLY_ENCLOSED_BY = '"' ESCAPE_UNENCLOSED_FIELD = '\\\\' NULL_IF = ('\\\\\\\\N'))
         '''.format(
             db=sql.identifier(self.connection.configured_database),
             schema=sql.identifier(self.connection.configured_schema),
@@ -526,7 +530,7 @@ class SnowflakeTarget(SQLInterface):
                 row = next(rows_iter)
 
                 with io.StringIO() as out:
-                    writer = csv.DictWriter(out, csv_headers)
+                    writer = csv.DictWriter(out, csv_headers, dialect='sfcsv')
                     writer.writerow(row)
                     return out.getvalue()
             except StopIteration:
